@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { exportPlotAsPdf } from "../utils/exportPdf.js";
 
 export default function PlotDisplay({ plot }) {
   const characters = Array.isArray(plot?.characters) ? plot.characters : [];
@@ -36,6 +37,9 @@ export default function PlotDisplay({ plot }) {
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-4xl font-bold tracking-tight">{plot?.title || "Untitled"}</h2>
             <span className="badge badge-primary badge-lg">{plot?.genre || "Genre"}</span>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => exportPlotAsPdf(plot)}>
+              Download PDF
+            </button>
           </div>
           <p className="text-lg italic text-base-content/80">{plot?.logline || ""}</p>
         </div>
