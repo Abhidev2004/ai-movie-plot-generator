@@ -43,16 +43,48 @@ export function buildPlotPrompt(context) {
 	const rawIdea = context?.rawIdea;
 	const selections = context?.selections;
 	const answers = context?.answers;
+	const plotLength = selections?.plotLength || "Medium";
+	const parsedActCount = Number.parseInt(selections?.actCount, 10);
+	const actCount = Number.isNaN(parsedActCount) ? 3 : parsedActCount;
+
+	const wordCountByLength = {
+		Short: "120-180 words",
+		Medium: "350-450 words",
+		Large: "600-800 words",
+	};
+
+	const targetWordCount = wordCountByLength[plotLength] || wordCountByLength.Medium;
+
+	let structureGuidance =
+		"Build a coherent multi-act arc with clear setup, escalation, and payoff that fits the requested act count.";
+
+	if (actCount === 3) {
+		structureGuidance =
+			"For a 3-act structure: make Act One a focused setup/inciting incident, Act Two a sustained escalation with reversals and midpoint pressure, and Act Three a decisive climax and resolution.";
+	} else if (actCount === 4) {
+		structureGuidance =
+			"For a 4-act structure: use Act One for setup, Act Two for first escalation, Act Three for deeper complications and a late turning point, and Act Four for climax plus denouement.";
+	} else if (actCount === 5) {
+		structureGuidance =
+			"For a 5-act structure: pace progressively across five distinct movements (setup, rising conflict, major reversal, pre-climax crisis, final confrontation/resolution), ensuring each act has a unique dramatic purpose instead of padded repetition.";
+	}
 
 	return [
 		"You are a screenwriter and story architect generating a complete movie plot from the user's idea and clarification answers.",
 		"Use the user's provided details exactly where relevant, and fill gaps with coherent cinematic storytelling.",
 		"Weave in every character name, age, gender, and location the user provided.",
-		"Keep act summaries to 2-3 sentences each.",
+		`Write exactly ${actCount} acts in the \"acts\" array.`,
+		`Each act's content must be ${targetWordCount} and split into multiple paragraphs.`,
+		"Within each act, cover key scenes, character moments, dialogue beats, and rising tension.",
+		"Separate paragraphs inside each act content string using \\n\\n.",
+		structureGuidance,
 		"Respond ONLY with valid JSON in this exact shape, with no markdown fences and no extra text:",
-		'{ "title": string, "genre": string, "logline": string, "characters": [ { "name": string, "age": string, "gender": string, "role": string, "arc": string } ], "locations": [ { "name": string, "description": string } ], "actOne": string, "actTwo": string, "actThree": string }',
+		`{ "title": string, "genre": string, "logline": string, "characters": [ { "name": string, "age": string, "gender": string, "role": string, "arc": string } ], "locations": [ { "name": string, "description": string } ], "acts": [ { "title": string, "content": string } ] }`,
+		`The \"acts\" array must contain exactly ${actCount} entries and together form a complete story arc for ${actCount} acts.`,
+		"Use titles like \"Act One\", \"Act Two\", etc., matching the number of acts requested.",
 		"Keep the plot internally consistent, emotionally engaging, and specific.",
 		"Use the selected genre and tone if provided.",
+		`Use the selected plot length (${plotLength}) and act count (${actCount}) if provided.`,
 		"Return a polished movie-ready structure with clear character arcs and distinct locations.",
 		"",
 		"User idea:",
