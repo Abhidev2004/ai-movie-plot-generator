@@ -38,8 +38,8 @@ export default function ClarifyingQuestions({ questions, onSubmit }) {
           <form className="space-y-4" onSubmit={handleSubmit}>
             {(questions || []).map((question) => (
               <div key={question.id} className="form-control">
-                <label className="label" htmlFor={`question-${question.id}`}>
-                  <span className="label-text font-medium">{question.label}</span>
+                <label className="label items-start" htmlFor={`question-${question.id}`}>
+                  <span className="label-text min-w-0 whitespace-normal break-words font-medium">{question.label}</span>
                 </label>
 
                 {question.type === "select" ? (
