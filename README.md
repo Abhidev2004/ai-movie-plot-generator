@@ -2,7 +2,10 @@
 
 **🔗 Live Site: [ai-movie-plot-generator.vercel.app](https://ai-movie-plot-generator.vercel.app/)**
 
-An AI-powered movie plot generator. Give it a vague story idea, and it uses Google's Gemini models to figure out what's missing, ask a few smart clarifying questions, and generate a fully structured plot — complete with characters, locations, and a three-act to five-act breakdown — ready to export as a PDF.
+
+An AI-powered movie plot generator. Give it a vague story idea, and it uses Google's Gemini models to figure out what's missing, ask a few smart clarifying questions, and generate a fully structured plot — complete with characters, locations, and a three-act breakdown — ready to export as a PDF.
+
+> **Note on the backend:** this project originally shipped with a Node/Express backend, then was migrated to a Python/FastAPI backend to satisfy a coursework requirement. The Python backend (`backend-python/`) is what's live in production today. The original Node backend (`backend/`) is kept in the repo, untouched and still deployable, as a reference implementation and rollback option — see [Backend History](#-backend-history) below.
 
 ---
 
@@ -12,34 +15,43 @@ An AI-powered movie plot generator. Give it a vague story idea, and it uses Goog
 - **Smart clarifying questions** — the AI only asks about what's genuinely ambiguous (character names, ages, relationships, setting, conflict), capped at 6 questions, and skips straight to plot generation if your idea is already detailed enough.
 - **Structured plot generation** — title, genre, logline, a full character roster (name, age, gender, role, arc), key locations, and a three-act structure that weaves in every detail you provided.
 - **One-click PDF export** — generates a clean, readable PDF entirely in the browser (via `jsPDF`) and downloads it straight to your device. No server round-trip, no data stored anywhere.
+- **Resilient API handling** — retry with exponential backoff on transient rate limits, a daily-quota short-circuit that fails fast with a clear message, and automatic fallback to a lighter Gemini model if the primary one is temporarily unavailable.
 - **Streaming-platform aesthetic** — a dark, synthwave-themed UI built with Tailwind + DaisyUI.
 
 ---
 
 ## 🧱 Tech Stack
 
-| Layer      | Tech                                          |
-|------------|------------------------------------------------|
-| Frontend   | React (Vite), Tailwind CSS, DaisyUI             |
-| Backend    | Node.js, Express                                |
-| AI         | Google Gemini API (`@google/genai`)             |
-| PDF Export | jsPDF (client-side, no server involved)         |
-| Hosting    | Render (backend) · Vercel (frontend)            |
+| Layer      | Tech                                              |
+|------------|----------------------------------------------------|
+| Frontend   | React (Vite), Tailwind CSS, DaisyUI                 |
+| Backend    | Python, FastAPI, Uvicorn, Pydantic                  |
+| AI         | Google Gemini API (`google-genai`)                  |
+| PDF Export | jsPDF (client-side, no server involved)             |
+| Hosting    | Render (backend) · Vercel (frontend)                |
 
 ---
 
 ## 📁 Project Structure
 
 ai-movie-plot-generator/
-├── backend/
+├── backend-python/ # ⭐ Live backend (FastAPI)
 │ ├── controllers/
-│ │ └── plotController.js # Request handlers
+│ │ └── plot_controller.py # Request handlers + Pydantic request models
 │ ├── prompts/
-│ │ └── systemPrompts.js # Prompt engineering for Gemini
-│ ├── routes/
-│ │ └── plotRoutes.js # API route definitions
+│ │ └── system_prompts.py # Prompt engineering for Gemini
+│ ├── routers/
+│ │ └── plot_routes.py # API route definitions
 │ ├── services/
-│ │ └── geminiService.js # Gemini API calls, retry/fallback logic
+│ │ └── gemini_service.py # Gemini calls, retry/backoff, fallback model
+│ ├── .env.example
+│ ├── requirements.txt
+│ └── main.py
+├── backend/ # Legacy Node/Express backend (kept for reference)
+│ ├── controllers/
+│ ├── prompts/
+│ ├── routes/
+│ ├── services/
 │ ├── .env.example
 │ ├── package.json
 │ └── server.js
@@ -58,9 +70,12 @@ ai-movie-plot-generator/
 │ └── App.jsx # Stage/state machine
 └── package.json
 
+
 ---
 
 ## 🔌 API Endpoints
+
+Served by `backend-python` (FastAPI). Same paths and JSON shapes as the original Node implementation.
 
 | Method | Endpoint             | Description                                       |
 |--------|-----------------------|---------------------------------------------------|
@@ -73,7 +88,8 @@ ai-movie-plot-generator/
 ## 🚀 Getting Started (local development)
 
 ### Prerequisites
-- Node.js (v18+)
+- Python 3.10+
+- Node.js (v18+) — for the frontend
 - A [Google AI Studio](https://aistudio.google.com/) API key
 
 ### 1. Clone the repo
@@ -82,13 +98,15 @@ git clone https://github.com/<your-username>/ai-movie-plot-generator.git
 cd ai-movie-plot-generator
 ```
 
-### 2. Backend setup
+### 2. Backend setup (Python — this is the live backend)
 ```bash
-cd backend
-npm install
+cd backend-python
+python -m venv venv
+venv\Scripts\Activate.ps1      # Windows PowerShell — see note below for other shells
+pip install -r requirements.txt
 cp .env.example .env
 ```
-Fill in `backend/.env`:
+Fill in `backend-python/.env`:
 GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-flash-latest
 PORT=5000
@@ -96,8 +114,9 @@ FRONTEND_ORIGIN=http://localhost:5173
 
 Run it:
 ```bash
-npm run dev
+uvicorn main:app --reload --port 5000
 ```
+Visit `http://localhost:5000/health` — should return `{"status":"ok"}`.
 
 ### 3. Frontend setup
 ```bash
@@ -112,14 +131,22 @@ Run it:
 npm run dev
 ```
 
-Visit `http://localhost:5173` — make sure the backend is running at the same time.
+Visit `http://localhost:5173` — make sure the Python backend is running at the same time.
 
 ---
 
 ## ☁️ Deployment
 
-- **Backend** is deployed on [Render](https://render.com) (free tier). Note: free-tier services sleep after inactivity — the first request after idle can take 30–60 seconds to respond.
-- **Frontend** is deployed on [Vercel](https://vercel.com), pulling `VITE_API_URL` from its project environment variables at build time.
+- **Backend** (`backend-python`) is deployed on [Render](https://render.com) as a Python 3 Web Service (free tier) — Build Command `pip install -r requirements.txt`, Start Command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Free-tier services sleep after inactivity; the first request after idle can take 30–60 seconds.
+- **Frontend** is deployed on [Vercel](https://vercel.com), pulling `VITE_API_URL` from its project environment variables at build time, pointed at the Python backend's `/api` path.
+
+---
+
+## 🕓 Backend History
+
+This project shipped its first working version with a Node/Express backend, fully deployed and functional. It was then rebuilt in Python/FastAPI (`backend-python/`) to satisfy a course requirement, following the same architecture (routes → controllers → services → prompts) and identical API contracts, so the frontend needed zero changes beyond one environment variable.
+
+The Node backend (`backend/`) is left in the repo, still deployable independently, and was used as the source of truth when porting the prompt-engineering logic and retry/fallback behavior line-for-line into Python.
 
 ---
 
@@ -133,7 +160,3 @@ Visit `http://localhost:5173` — make sure the backend is running at the same t
 ## 📄 License
 
 Not yet licensed — add a `LICENSE` file if you'd like to open-source this formally.
-
-git add README.md
-git commit -m "docs: add project README"
-git push
